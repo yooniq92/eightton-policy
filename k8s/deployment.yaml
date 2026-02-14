@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eightton-policy
+  namespace: aiops-app
+  labels:
+    app: eightton-policy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: eightton-policy
+  template:
+    metadata:
+      labels:
+        app: eightton-policy
+    spec:
+      containers:
+      - name: policy
+        image: v2-zcr.cloudzcp.io/cloudzcp/eightton-policy:0.1.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+        env:
+        - name: MONGODB_URI
+          value: "mongodb://eightton-mongodb:27017"
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      imagePullSecrets:
+      - name: v2-zcr-cloudzcp-io-robot-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: eightton-policy
+  namespace: aiops-app
+spec:
+  selector:
+    app: eightton-policy
+  ports:
+  - port: 80
+    targetPort: 8000
+  type: ClusterIP

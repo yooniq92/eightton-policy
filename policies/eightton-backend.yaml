@@ -1,0 +1,78 @@
+version: "1.0"
+name: "eightton-backend"
+description: "에잇톤 백엔드 프로젝트 정책"
+
+policies:
+  protected_paths:
+    - id: "protect-config"
+      description: "config.py must not be changed"
+      severity: "error"
+      patterns:
+        - "src/eightton/config.py"
+        - ".env"
+        - ".env.*"
+
+    - id: "protect-base"
+      description: "Base entity/repository must not be modified"
+      severity: "error"
+      patterns:
+        - "src/eightton/entity/base.py"
+        - "src/eightton/repository/base.py"
+
+  layer_rules:
+    - id: "api-no-direct-repo"
+      description: "API layer must not import from repository directly"
+      severity: "error"
+      source_pattern: "src/eightton/api/**/*.py"
+      forbidden_imports:
+        - "eightton.repository"
+        - "from eightton.repository"
+      exclude:
+        - "src/eightton/api/dependencies.py"
+
+    - id: "service-no-fastapi"
+      description: "Service layer must not depend on FastAPI"
+      severity: "error"
+      source_pattern: "src/eightton/service/**/*.py"
+      forbidden_imports:
+        - "fastapi"
+        - "from fastapi"
+
+    - id: "entity-no-service-repo"
+      description: "Entity must not import from service or repository"
+      severity: "error"
+      source_pattern: "src/eightton/entity/**/*.py"
+      forbidden_imports:
+        - "eightton.repository"
+        - "eightton.service"
+
+  code_conventions:
+    - id: "entity-extends-base"
+      description: "Entities should extend BaseEntity"
+      severity: "warning"
+      check_type: "class_inheritance"
+      target_pattern: "src/eightton/entity/**/*.py"
+      exclude:
+        - "src/eightton/entity/base.py"
+        - "src/eightton/entity/__init__.py"
+      required_base: "BaseEntity"
+
+    - id: "repo-extends-base"
+      description: "Repositories should extend BaseRepository"
+      severity: "warning"
+      check_type: "class_inheritance"
+      target_pattern: "src/eightton/repository/**/*.py"
+      exclude:
+        - "src/eightton/repository/base.py"
+        - "src/eightton/repository/__init__.py"
+      required_base: "BaseRepository"
+
+    - id: "router-has-prefix"
+      description: "API routers should define prefix"
+      severity: "warning"
+      check_type: "pattern_present"
+      target_pattern: "src/eightton/api/**/*.py"
+      exclude:
+        - "src/eightton/api/__init__.py"
+        - "src/eightton/api/dependencies.py"
+      required_pattern: "APIRouter\\(prefix="
