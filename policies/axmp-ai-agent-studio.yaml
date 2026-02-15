@@ -1,0 +1,169 @@
+version: "1.0"
+name: "axmp-ai-agent-studio"
+description: "AXMP AI Agent Studio 프로젝트 정책 - 레이어 아키텍처, DI 패턴, 코드 컨벤션 검증"
+
+policies:
+  protected_paths:
+    - id: "protect-main-entry"
+      description: "main.py 앱 진입점은 신중하게 변경해야 함"
+      severity: "error"
+      patterns:
+        - "src/axmp_ai_agent_studio/main.py"
+
+    - id: "protect-settings"
+      description: "설정 파일은 신중하게 변경해야 함"
+      severity: "error"
+      patterns:
+        - "src/axmp_ai_agent_studio/setting.py"
+        - ".env"
+        - ".env.*"
+
+    - id: "protect-di-containers"
+      description: "DI 컨테이너는 아키텍처 핵심이므로 신중하게 변경해야 함"
+      severity: "error"
+      patterns:
+        - "src/axmp_ai_agent_studio/di/resource_container.py"
+        - "src/axmp_ai_agent_studio/di/repository_container.py"
+        - "src/axmp_ai_agent_studio/di/service_container.py"
+
+    - id: "protect-infra"
+      description: "인프라/빌드 설정은 신중하게 변경해야 함"
+      severity: "error"
+      patterns:
+        - "pyproject.toml"
+        - "Dockerfile"
+        - ".github/workflows/*.yml"
+        - ".pre-commit-config.yaml"
+        - "logging.conf"
+
+  layer_rules:
+    - id: "router-no-direct-repo"
+      description: "Router 레이어는 Repository를 직접 import할 수 없음 (Service를 통해 접근)"
+      severity: "error"
+      source_pattern: "src/axmp_ai_agent_studio/router/**/*.py"
+      forbidden_imports:
+        - "axmp_ai_agent_core.db."
+        - "from axmp_ai_agent_core.db"
+        - "_repository import"
+        - "from axmp_ai_agent_core.db import"
+
+    - id: "service-no-fastapi"
+      description: "Service 레이어는 FastAPI에 의존할 수 없음"
+      severity: "error"
+      source_pattern: "src/axmp_ai_agent_studio/service/**/*.py"
+      forbidden_imports:
+        - "fastapi"
+        - "from fastapi"
+
+    - id: "service-no-router"
+      description: "Service 레이어는 Router/Scheme 레이어에 의존할 수 없음"
+      severity: "error"
+      source_pattern: "src/axmp_ai_agent_studio/service/**/*.py"
+      forbidden_imports:
+        - "axmp_ai_agent_studio.router"
+        - "from axmp_ai_agent_studio.router"
+        - "axmp_ai_agent_studio.scheme"
+        - "from axmp_ai_agent_studio.scheme"
+
+    - id: "scheme-no-service-router"
+      description: "Scheme(DTO) 레이어는 Service/Router에 의존할 수 없음"
+      severity: "error"
+      source_pattern: "src/axmp_ai_agent_studio/scheme/**/*.py"
+      forbidden_imports:
+        - "axmp_ai_agent_studio.service"
+        - "from axmp_ai_agent_studio.service"
+        - "axmp_ai_agent_studio.router"
+        - "from axmp_ai_agent_studio.router"
+
+    - id: "entity-isolation"
+      description: "Entity는 service, router, scheme, db에 의존할 수 없음 (순수 데이터 모델)"
+      severity: "error"
+      source_pattern: "src/axmp_ai_agent_core/entity/**/*.py"
+      forbidden_imports:
+        - "axmp_ai_agent_core.service"
+        - "axmp_ai_agent_core.db."
+        - "axmp_ai_agent_studio.router"
+        - "axmp_ai_agent_studio.scheme"
+        - "axmp_ai_agent_studio.service"
+      exclude:
+        - "src/axmp_ai_agent_core/entity/__init__.py"
+
+    - id: "repo-no-service-router"
+      description: "Repository는 Service/Router/Scheme에 의존할 수 없음"
+      severity: "error"
+      source_pattern: "src/axmp_ai_agent_core/db/**/*.py"
+      forbidden_imports:
+        - "axmp_ai_agent_core.service"
+        - "axmp_ai_agent_studio.router"
+        - "axmp_ai_agent_studio.scheme"
+        - "axmp_ai_agent_studio.service"
+      exclude:
+        - "src/axmp_ai_agent_core/db/__init__.py"
+
+  code_conventions:
+    - id: "entity-extends-base"
+      description: "Entity는 CoreBaseModel 또는 NamedCoreBaseModel을 상속해야 함"
+      severity: "warning"
+      check_type: "class_inheritance"
+      target_pattern: "src/axmp_ai_agent_core/entity/**/*.py"
+      exclude:
+        - "src/axmp_ai_agent_core/entity/__init__.py"
+        - "src/axmp_ai_agent_core/entity/base_model.py"
+        - "src/axmp_ai_agent_core/entity/base_profile.py"
+      required_base: "CoreBaseModel"
+
+    - id: "repo-extends-base"
+      description: "Repository는 BaseRepository를 상속해야 함"
+      severity: "warning"
+      check_type: "class_inheritance"
+      target_pattern: "src/axmp_ai_agent_core/db/**/*.py"
+      exclude:
+        - "src/axmp_ai_agent_core/db/__init__.py"
+        - "src/axmp_ai_agent_core/db/base_repository.py"
+      required_base: "BaseRepository"
+
+    - id: "router-has-inject"
+      description: "Router 엔드포인트는 @inject 데코레이터를 사용해야 함"
+      severity: "warning"
+      check_type: "pattern_present"
+      target_pattern: "src/axmp_ai_agent_studio/router/**/*.py"
+      exclude:
+        - "src/axmp_ai_agent_studio/router/__init__.py"
+      required_pattern: "@inject"
+
+    - id: "router-has-auth"
+      description: "Router 엔드포인트는 get_current_user 인증을 사용해야 함"
+      severity: "warning"
+      check_type: "pattern_present"
+      target_pattern: "src/axmp_ai_agent_studio/router/**/*.py"
+      exclude:
+        - "src/axmp_ai_agent_studio/router/__init__.py"
+        - "src/axmp_ai_agent_studio/router/healthz_router.py"
+      required_pattern: "get_current_user"
+
+    - id: "router-exports-router"
+      description: "Router 파일은 router = APIRouter()를 정의해야 함"
+      severity: "warning"
+      check_type: "pattern_present"
+      target_pattern: "src/axmp_ai_agent_studio/router/**/*.py"
+      exclude:
+        - "src/axmp_ai_agent_studio/router/__init__.py"
+      required_pattern: "router\\s*=\\s*APIRouter\\("
+
+    - id: "service-async-methods"
+      description: "Service 메서드는 async로 정의해야 함"
+      severity: "warning"
+      check_type: "pattern_present"
+      target_pattern: "src/axmp_ai_agent_studio/service/**/*.py"
+      exclude:
+        - "src/axmp_ai_agent_studio/service/__init__.py"
+      required_pattern: "async def "
+
+    - id: "service-exception-handling"
+      description: "Service는 CoreServiceException을 사용하여 에러를 처리해야 함"
+      severity: "warning"
+      check_type: "pattern_present"
+      target_pattern: "src/axmp_ai_agent_studio/service/**/*.py"
+      exclude:
+        - "src/axmp_ai_agent_studio/service/__init__.py"
+      required_pattern: "CoreServiceException"
